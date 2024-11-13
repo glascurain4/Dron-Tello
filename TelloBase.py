@@ -16,6 +16,9 @@ class TelloBase:
         self._drone_flying = False
         self._loop_active = True
 
+        #self.camera_resolution = (300, 200)
+        self.camera_resolution = (650, 430)
+
         # -------------------- setup tello -------------------- #
   
         self.tello = Tello() if self._drone_connect else None
@@ -66,10 +69,10 @@ class TelloBase:
             self.tello.send_rc_control(right_vel, forward_vel, up_vel, yaw_vel)
 
 
-    def _process_input(self):
+    def _process_input(self, wait=1):
         """Process keyboard input during processing loop."""
 
-        c = cv2.waitKey(80)
+        c = cv2.waitKey(wait)
 
         if c == 27: # esc: terminate everything
             if self._drone_connect:
