@@ -42,8 +42,11 @@ red = (5, 0, 230)
 #upper = np.array((179, 255, 255))
 
 # cima circuit from drone
-lower = np.array((30, 85, 0))
-upper = np.array((179, 255, 255))
+# lower = np.array((30, 85, 0))
+# upper = np.array((179, 255, 255))
+
+lower = np.array((18, 57, 0))
+upper = np.array((51, 255, 255))
 
 # ----------------------------------- Region of interest
 
@@ -62,7 +65,7 @@ roi_y1 = int(roi_y0 + roi_height)
 # ----------------------------------- Drone parameters
 
 tello_current_speed = 0
-tello_speed_limit = 30
+tello_speed_limit = 25 # 30 25
 
 # --- Yaw
 
@@ -124,11 +127,9 @@ path_center = (0 , 0)
 
 # ---- Drone takeoff
 
-tello.takeoff()
-tello.takeoff()
-tello.send_rc_control(0, 0, 30, 0)
-time.sleep(2)
-tello.send_rc_control(0, 0, 0, 0)
+time.sleep(0.2)
+
+
 
 while True:
     
@@ -136,6 +137,7 @@ while True:
     
     #_, frame = cap.read()
     frame = frame_read.frame
+    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
     
     frame = cv2.resize(frame, resolution)           # change resolution
     roi = frame[roi_y0 : roi_y1, roi_x0: roi_x1]    # get region of interest
@@ -262,3 +264,9 @@ while True:
         tello.land()
         tello.end()
         break
+    elif c == ord('t'):
+        tello.takeoff()
+        tello.send_rc_control(0, 0, 30, 0)
+        time.sleep(2) # 2
+        tello.send_rc_control(0, 0, 0, 0)
+        

@@ -4,7 +4,9 @@
 
 
 import cv2
+import time
 from djitellopy import Tello
+
 
 
 class TelloBase:
@@ -65,7 +67,7 @@ class TelloBase:
             cv2.imshow(*pair)
 
 
-    def _move_drone(self, right_vel:int, forward_vel:int, up_vel:int, yaw_vel:int):
+    def _move_drone(self, right_vel, forward_vel, up_vel, yaw_vel):
             self.tello.send_rc_control(right_vel, forward_vel, up_vel, yaw_vel)
 
 
@@ -87,6 +89,9 @@ class TelloBase:
         elif c == ord('t'): # t: takeoff
             if self._drone_connect:
                 self.tello.takeoff()
+                self.tello.send_rc_control(0, 0, 30, 0)
+                time.sleep(1) # 2
+                self.tello.send_rc_control(0, 0, 0, 0)
 
 
     def _process_frame(self):        

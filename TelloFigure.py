@@ -8,6 +8,9 @@ import time
 import numpy as np
 from copy import copy
 from TelloPath import TelloPath
+import os, json
+
+hsvPath = "hsv.json"
 
 
 class TelloFigure(TelloPath):
@@ -20,12 +23,23 @@ class TelloFigure(TelloPath):
         self.hsv_lower_path = np.array([13, 85, 0])
         self.hsv_upper_path = np.array([45, 255, 255])
 
-        self.hsv_bounds_figures = { # pairs of lower and upper
-            "black": [(180, 255, 30), (180, 255, 30)],
-            "white": [(0, 0, 183), (179, 18, 255)],
-            "red": [(128, 127, 0), (179, 219, 255)],
-            "green": [(52, 61, 218), (91, 165, 255)]
-        }
+        self.forward_speed = 6 # 8
+
+        self.roi_width = 1 * self.camera_resolution[0]
+        self.roi_height = int(0.3 * self.camera_resolution[1])
+        
+        self.roi_offset_top = int(0.0 * self.camera_resolution[1])
+        self.roi_offset_left = (self.camera_resolution[0] - self.roi_width) // 2
+        
+        self.roi_x0 = int(self.roi_offset_left)
+        self.roi_y0 = int(self.roi_offset_top)
+        self.roi_x1 = int(self.roi_x0 + self.roi_width)
+        self.roi_y1 = int(self.roi_y0 + self.roi_height)
+
+        self.hsv_bounds_figures = {}
+
+        with open(hsvPath, "r", encoding='utf-8') as file:
+            self.hsv_bounds_figures = json.load(file)
 
         # ---------------------- figures ------------------------ #
 
@@ -34,20 +48,26 @@ class TelloFigure(TelloPath):
         self.detected_figure_counter = 0
 
         # number of frames of consecutive detection of the same figure
-        self.detected_figure_counter_limit = 10
+        self.detected_figure_counter_limit = 8
 
-        self.turn_right = lambda x: self.tello.rotate_clockwise(90)
-        self.turn_left = lambda x: self.tello.rotate_counter_clockwise(90)
-        self.turn_180 = lambda x: self.tello.rotate_clockwise(180)
-        self.keep_going = lambda x: self.tello.move_forward(20)
+        self.turn_right = lambda : self.tello.rotate_clockwise(90)
+        self.turn_left = lambda : self.tello.rotate_counter_clockwise(90)
+        self.turn_180 = lambda : self.tello.rotate_clockwise(180)
+        self.keep_going = lambda : self.tello.move_forward(20)
 
         self.figure_actions = {
-            "triangle": self.turn_right,
-            "rectangle": self.turn_left,
-            "circle": self.keep_going,
-            "pentagon": self.turn_180,
-            "star": None
+            #"triangle": self.turn_left,
+            "rectangle": self.turn_right,
+            "circle": self.turn_left,
+            "pentagon": self.turn_right,
+
+            #"star": None
         }
+
+        self.tello.takeoff()
+        self.tello.send_rc_control(0, 0, 30, 0)
+        time.sleep(1) # 2
+        self.tello.send_rc_control(0, 0, 0, 0)
 
 
     def _figure_combine_color_masks(self, frame_hsv):
@@ -56,7 +76,11 @@ class TelloFigure(TelloPath):
         # create masks for each color
         masks = []
         for color in self.hsv_bounds_figures.keys():
-            mask = cv2.inRange(frame_hsv, *self.hsv_bounds_figures[color])
+            if color == "path":
+                continue
+            mask = cv2.inRange(frame_hsv, 
+                               tuple(self.hsv_bounds_figures[color]["lower"]), 
+                               tuple(self.hsv_bounds_figures[color]["upper"]))
             masks.append(mask)
         # combine masks into one
         combined_mask = cv2.bitwise_or(masks[0], masks[1])
@@ -69,20 +93,24 @@ class TelloFigure(TelloPath):
         """Finds figures in the hsv frame and returns the string of 
         the largest figure found in the frame."""
 
-        # mask = self._figure_combine_color_masks(frame_hsv)
+        mask = self._figure_combine_color_masks(frame_hsv)
 
         #mask = self._process_figures(frame)
-        mask = cv2.inRange(frame_hsv,
-                                    self.hsv_bounds_figures["green"][0], 
-                                    self.hsv_bounds_figures["green"][1])
+        # mask = cv2.inRange(frame_hsv,
+        #                             self.hsv_bounds_figures["green"][0], 
+        #                             self.hsv_bounds_figures["green"][1])
 
         # apply filters
         mask = cv2.bilateralFilter(mask, 9, 75, 75) # works fine
         kernel = np.ones((5, 5), np.uint8) # works good
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        mask = cv2.GaussianBlur(mask, (5, 5), 0)
+
+        # process region of interest
+        roi = mask[self.roi_y0 : self.roi_y1, self.roi_x0: self.roi_x1]
 
         # find contours in mask
-        contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(roi, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
         # initialize figure variables
         figure = None
@@ -121,7 +149,7 @@ class TelloFigure(TelloPath):
             x = approx.ravel()[0]
             y = approx.ravel()[1]
 
-            text_color = (0, 0, 255)
+            text_color = (0, 255, 255)
 
             vertices = len(approx)
             if vertices == 10:
@@ -146,10 +174,10 @@ class TelloFigure(TelloPath):
             #cv2.drawContours(frame_drawing, [approx], 0, (0, 0, 255), 5)
 
         if len(max_contour) != 0:
-            cv2.putText(frame_drawing, figure, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, text_color, 2)
-            cv2.drawContours(frame_drawing, [max_contour], 0, (0, 0, 255), 5)
+            cv2.putText(frame_drawing, figure, (x, y+20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, text_color, 2)
+            #cv2.drawContours(frame_drawing, [max_contour], 0, (0, 0, 255), 5)
 
-        self._imshow(("mask", mask))
+        self._imshow(("mask", mask), ("roi", roi))
 
         return figure
     
@@ -195,6 +223,8 @@ class TelloFigure(TelloPath):
             # time.sleep(1)
             if self._drone_connect:
                 self._figure_perform_action(self.detected_figure_current)
+                self.tello.send_rc_control(0, 20, 0, 0)
+                time.sleep(0.3)
             self.detected_figure = False
             self.detected_figure_counter = 0
             self.detected_figure_current = None
@@ -204,6 +234,7 @@ class TelloFigure(TelloPath):
         """This function will be run continuously in the main loop."""
         # get frame and resize
         frame = self.frame_function()
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         frame = cv2.resize(frame, self.camera_resolution)
         frame_drawing = copy(frame)
         frame_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -223,5 +254,6 @@ class TelloFigure(TelloPath):
 
 
 if __name__ == "__main__":
-    instance = TelloFigure(connect=False, stream=False, cam_source=0)
+    drone_status = True
+    instance = TelloFigure(connect=drone_status, stream=drone_status, cam_source=0)
     instance.MainLoop()

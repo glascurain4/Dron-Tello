@@ -8,15 +8,15 @@ def nothing(x):
 # Load image
 #image = cv2.imread('old/cap2.jpg')
 
-cap = cv2.VideoCapture(0)
+# cap = cv2.VideoCapture(0)
 #cap = cv2.VideoCapture("test.mp4")
 
-_, image = cap.read()
+# _, image = cap.read()
 
-#tello = Tello()
-#tello.connect()
-#tello.streamon()
-#frame_instance = tello.get_frame_read()
+tello = Tello()
+tello.connect()
+tello.streamon()
+frame_instance = tello.get_frame_read()
 
 # Create a window
 cv2.namedWindow('image')
@@ -41,8 +41,8 @@ phMin = psMin = pvMin = phMax = psMax = pvMax = 0
 
 while(1):
     
-    _, image = cap.read()
-    #image = frame_instance.frame 
+    # _, image = cap.read()
+    image = frame_instance.frame 
     
     image = cv2.resize(image, (400, 300))
     

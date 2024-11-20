@@ -17,17 +17,17 @@ class TelloPath(TelloBase):
 
         # ----------------------- speed ----------------------- #
         
-        self.forward_speed = 30
-        self.lateral_speed = 8
-        self.yaw_speed = 70
+        self.forward_speed = 5 # 30
+        self.lateral_speed = 2 # 8
+        self.yaw_speed = 30 # 70
 
         self.yaw_exp = 0.007
         self.lateral_exp = 0.012
 
         # -------------------- hsv limits -------------------- #
 
-        self.hsv_lower_path = np.array((91, 175, 251))
-        self.hsv_upper_path = np.array((179, 255, 255))
+        self.hsv_lower_path = np.array((14, 97, 0))
+        self.hsv_upper_path = np.array((41, 255, 255))
 
         # ---------------- region of interest ---------------- #
 
@@ -63,7 +63,7 @@ class TelloPath(TelloBase):
 
 
     def _calculate_lateral_speed(self, center_offset:float):
-        limit = int(0.1 * self.camera_resolution[0]) # 25
+        limit = int(0.083 * self.camera_resolution[0]) # 25
         if (abs(center_offset) < limit and abs(center_offset) > -limit):
             return 0
         
@@ -81,8 +81,14 @@ class TelloPath(TelloBase):
         yaw_vel = round(self._calculate_yaw_speed(angle), 2)
         forward_vel = self.forward_speed
         up_vel = 0
-        # print("lateral:", right_vel, "yaw:", yaw_vel)
-        # self._move_drone(right_vel, forward_vel, up_vel, yaw_vel)    
+        right_vel = int(right_vel)
+        yaw_vel = int(yaw_vel)
+        forward_vel = int(forward_vel)
+        up_vel = int(up_vel)
+        print("lateral:", right_vel, "yaw:", yaw_vel)
+        #self._move_drone(right_vel, forward_vel, up_vel, yaw_vel) 
+        if self._drone_connect:   
+            self.tello.send_rc_control(right_vel, 5, 0, yaw_vel)
 
     
     def _get_contour_intersections(self, contours, frame, frame_drawing):
@@ -162,6 +168,9 @@ class TelloPath(TelloBase):
         """This function will be run continuously in the main loop."""
         # get frame and resize
         frame = self.frame_function()
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        if self._drone_stream:
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         frame = cv2.resize(frame, self.camera_resolution)
         frame_drawing = copy(frame)
         frame_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -177,5 +186,6 @@ class TelloPath(TelloBase):
 
 
 if __name__ == "__main__":
-    instance = TelloPath(connect=False, stream=False, cam_source="tools/test.mp4")
+    drone_status = True
+    instance = TelloPath(connect=drone_status, stream=drone_status, cam_source="tools/test.mp4")
     instance.MainLoop()
