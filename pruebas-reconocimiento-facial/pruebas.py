@@ -2,8 +2,17 @@ import cv2
 import numpy as np
 
 def findFace(img):
+    if img is None:
+        print("Error: La imagen es None. Verifica la fuente de video.")
+        return img, [[0, 0], 0]
+
     faceCascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
-    imgGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    try:
+        imgGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    except cv2.error as e:
+        print(f"Error al convertir a escala de grises: {e}")
+        return img, [[0, 0], 0]
+    
     faces = faceCascade.detectMultiScale(imgGray, scaleFactor=1.1, minNeighbors=4)
     
     myFaceListC = []
@@ -24,14 +33,26 @@ def findFace(img):
     else:
         return img, [[0, 0], 0]
 
+# Inicializar la captura de video
 cap = cv2.VideoCapture(0)
+if not cap.isOpened():
+    print("Error: No se pudo abrir la cámara.")
+    exit()
+
 while True:
-    _, img = cap.read()
+    ret, img = cap.read()
+    if not ret:
+        print("Error: No se pudo capturar el frame.")
+        break
+
     img, info = findFace(img)
-    print("Area", info[1])  # Cambié info[0] a info[1] para mostrar el área
+    print("Centro:", info[0], "Área:", info[1])  # Información del rostro detectado
     cv2.imshow("Output", img)
+
+    # Presiona 'q' para salir
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
+# Liberar recursos
 cap.release()
 cv2.destroyAllWindows()
